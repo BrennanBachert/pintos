@@ -284,10 +284,10 @@ real_time_delay (int64_t num, int32_t denom)
 
 // Allows the insertion into the linked list to be sorted by wakeup time
 bool wakeup_compare(const struct list_elem *a, const struct list_elem *b, void *aux UNUSED){
-    struct thread *t1 = list_entry(a, struct thread, sleep_elem);
-    struct thread *t2 = list_entry(b, struct thread, sleep_elem);
+  struct thread *t1 = list_entry(a, struct thread, sleep_elem);
+  struct thread *t2 = list_entry(b, struct thread, sleep_elem);
 
-    return t1->wakeup_tick < t2->wakeup_tick;
+  return t1->wakeup_tick < t2->wakeup_tick;
 }
 
 //main function that handles insertion into sleep list

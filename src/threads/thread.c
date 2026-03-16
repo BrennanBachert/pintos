@@ -234,12 +234,27 @@ thread_unblock (struct thread *t)
   enum intr_level old_level;
 
   ASSERT (is_thread (t));
-
   old_level = intr_disable ();
   ASSERT (t->status == THREAD_BLOCKED);
-  list_push_back (&ready_list, &t->elem);
+
+  //This doesnt unblock with priority 
+  //list_push_back (&ready_list, &t->elem);
+  //t->status = THREAD_READY;
+
+  //Unblock Thread and put in correct order
+  //Very similarly to alarmclock
+  list_insert_ordered(&ready_list, &t->elem, thread_priority_compare, NULL);
   t->status = THREAD_READY;
+
+  //Preemption Functionality
+  //If current thread prio is greater then current running thread 
+  //that thread should yield
+  if (t->priority > thread_current()->priority) {
+    intr_yield_on_return();
+  }
+
   intr_set_level (old_level);
+
 }
 
 /** Returns the name of the running thread. */
@@ -582,3 +597,12 @@ allocate_tid (void)
 /** Offset of `stack' member within `struct thread'.
    Used by switch.S, which can't figure it out on its own. */
 uint32_t thread_stack_ofs = offsetof (struct thread, stack);
+
+
+// Adding comparison function for priority ordering taken from alarm clock implement
+bool thread_priority_compare(const struct list_elem *a, const struct list_elem *b, void *aux UNUSED) {
+  struct thread *t1 = list_entry(a, struct thread, elem);
+  struct thread *t2 = list_entry(b, struct thread, elem);
+
+  return t1->priority > t2->priority;
+}
