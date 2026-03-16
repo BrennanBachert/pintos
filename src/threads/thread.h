@@ -94,6 +94,12 @@ struct thread
     int64_t wakeup_tick;
     struct list_elem sleep_elem;
 
+    //Adding more fields for prio donations
+    int original_priority;          //starting priority
+    struct list donations;          //list of threads that donated priority to this thread
+    struct lock *waiting_on_lock;   //lock thread is currently waiting for
+    struct list_elem donation_elem; //element to be inserted into a donor list
+
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /**< List element. */
 
@@ -141,5 +147,7 @@ int thread_get_nice (void);
 void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
+//adding this to be able to use in sync
+bool thread_priority_compare(const struct list_elem *a, const struct list_elem *b, void *aux UNUSED);
 
 #endif /**< threads/thread.h */

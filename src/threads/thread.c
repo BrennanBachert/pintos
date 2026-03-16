@@ -485,6 +485,12 @@ init_thread (struct thread *t, const char *name, int priority)
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);
   intr_set_level (old_level);
+
+  //init new fields for prio donating
+  t->original_priority = priority;
+  list_init(&t->donations);
+  t->waiting_on_lock = NULL;
+
 }
 
 /** Allocates a SIZE-byte frame at the top of thread T's stack and
