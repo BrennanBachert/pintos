@@ -24,6 +24,9 @@ static int64_t ticks;
    Initialized by timer_calibrate(). */
 static unsigned loops_per_tick;
 
+//Adds sleep_list
+static struct list sleep_list;
+
 static intr_handler_func timer_interrupt;
 static bool too_many_loops (unsigned loops);
 static void busy_wait (int64_t loops);
@@ -37,6 +40,9 @@ timer_init (void)
 {
   pit_configure_channel (0, 2, TIMER_FREQ);
   intr_register_ext (0x20, timer_interrupt, "8254 Timer");
+
+  //Initializes sleep list structure
+  list_init(&sleep_list);
 }
 
 /** Calibrates loops_per_tick, used to implement brief delays. */
@@ -86,14 +92,22 @@ timer_elapsed (int64_t then)
 
 /** Sleeps for approximately TICKS timer ticks.  Interrupts must
    be turned on. */
+
+//TODO edit
 void
 timer_sleep (int64_t ticks) 
 {
   int64_t start = timer_ticks ();
 
   ASSERT (intr_get_level () == INTR_ON);
-  while (timer_elapsed (start) < ticks) 
-    thread_yield ();
+
+  // put in sleep queue 
+
+  void thread_sleep(ticks);
+
+  //while (timer_elapsed (start) < ticks) 
+
+  //thread_yield ();
 }
 
 /** Sleeps for approximately MS milliseconds.  Interrupts must be
@@ -172,6 +186,27 @@ timer_interrupt (struct intr_frame *args UNUSED)
 {
   ticks++;
   thread_tick ();
+
+  // Wakeup Logic for AlarmClock
+
+  struct list_elem *e;
+  //Loops and wakes up all threads that are past wakeuptime
+  //Since list should be sorted once it gets to one threads who
+  // doesnt need to wakeup we can stop
+  while (!list_empty(&sleep_list)) {
+
+    e = list_front(&sleep_list);
+    struct thread *t = list_entry(e, struct thread, sleep_elem);
+
+    if (t->wakeup_tick <= ticks) {
+      list_pop_front(&sleep_list);
+      thread_unblock(t);
+    } else {
+      break;
+    }
+
+  }
+  
 }
 
 /** Returns true if LOOPS iterations waits for more than one timer
@@ -243,4 +278,38 @@ real_time_delay (int64_t num, int32_t denom)
      the possibility of overflow. */
   ASSERT (denom % 1000 == 0);
   busy_wait (loops_per_tick * num / 1000 * TIMER_FREQ / (denom / 1000)); 
+}
+
+//Contains Code for implementation of alarm clock
+
+// Allows the insertion into the linked list to be sorted by wakeup time
+bool wakeup_compare(const struct list_elem *a, const struct list_elem *b, void *aux UNUSED){
+    struct thread *t1 = list_entry(a, struct thread, sleep_elem);
+    struct thread *t2 = list_entry(b, struct thread, sleep_elem);
+
+    return t1->wakeup_tick < t2->wakeup_tick;
+}
+
+//main function that handles insertion into sleep list
+void thread_sleep(int64_t ticks) {
+
+  if (ticks <= 0){
+    return;
+  }
+
+  //Disabling interupts
+  ASSERT(intr_get_level() == INTR_ON)
+  enum intr_level old_level = intr_disable();
+  //Get current Thread
+  struct thread *cur = thread_current();
+  //Calc WakeUp Time
+  //Add to Thread struct
+  cur->wakeup_tick = timer_ticks() + ticks;
+
+  list_insert_ordered(&sleep_list, &cur->sleep_elem, wakeup_compare, NULL);
+
+  thread_block();
+  //re enable interupts
+  intr_set_level(old_level);
+
 }

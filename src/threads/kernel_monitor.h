@@ -1,3 +1,6 @@
+#ifndef KERNEL_MONITOR_H
+#define KERNEL_MONITOR_H
+
 #include "threads/init.h"
 #include <console.h>
 #include <debug.h>
@@ -23,9 +26,7 @@
 #include "threads/pte.h"
 #include "threads/thread.h"
 
-void kernel_monitor(void)
-{
-    //allocates space for cmd
+void kernel_monitor(void) {
     char cmd[128];
     int i;
 
@@ -36,20 +37,26 @@ void kernel_monitor(void)
         printf("monitor> ");
         i = 0;
 
-        //read keyboard input 
-        while (1)
-        {
+        while (1) {
             char c = input_getc();
-            //when to end command
-            if (c == '\n')
+
+            if(c == '\n' || c == '\r') {
                 break;
-            //dont allow greater than allocated space    
-            if (i < 127)
+            }
+
+            //handle backspace 
+            if((c == '\b' || c == 127) && i > 0) {
+                i--;
+                printf("\b \b");
+                continue;
+            }
+
+            if (i < sizeof(cmd) - 1){
                 cmd[i++] = c;
+            }
             putchar(c);
         }
 
-        //handles commands
         cmd[i] = '\0';
         printf("\n");
 
@@ -67,3 +74,4 @@ void kernel_monitor(void)
 
 
 
+#endif
