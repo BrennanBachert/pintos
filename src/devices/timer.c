@@ -103,7 +103,7 @@ timer_sleep (int64_t ticks)
 
   // put in sleep queue 
 
-  void thread_sleep(ticks);
+  thread_sleep(ticks);
 
   //while (timer_elapsed (start) < ticks) 
 
@@ -293,19 +293,22 @@ bool wakeup_compare(const struct list_elem *a, const struct list_elem *b, void *
 //main function that handles insertion into sleep list
 void thread_sleep(int64_t ticks) {
 
+
+
+  //Disabling interupts
+  enum intr_level old_level = intr_disable();
+
   if (ticks <= 0){
     return;
   }
 
-  //Disabling interupts
-  ASSERT(intr_get_level() == INTR_ON)
-  enum intr_level old_level = intr_disable();
   //Get current Thread
   struct thread *cur = thread_current();
   //Calc WakeUp Time
   //Add to Thread struct
   cur->wakeup_tick = timer_ticks() + ticks;
 
+  //Inserts in wakeup time order
   list_insert_ordered(&sleep_list, &cur->sleep_elem, wakeup_compare, NULL);
 
   thread_block();
