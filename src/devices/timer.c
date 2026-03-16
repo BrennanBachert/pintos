@@ -33,6 +33,7 @@ static void busy_wait (int64_t loops);
 static void real_time_sleep (int64_t num, int32_t denom);
 static void real_time_delay (int64_t num, int32_t denom);
 
+
 /** Sets up the timer to interrupt TIMER_FREQ times per second,
    and registers the corresponding interrupt. */
 void
@@ -207,6 +208,8 @@ timer_interrupt (struct intr_frame *args UNUSED)
 
   }
   
+  //Preempts current thread if needed
+  intr_yield_on_return();
 }
 
 /** Returns true if LOOPS iterations waits for more than one timer
@@ -292,12 +295,6 @@ bool wakeup_compare(const struct list_elem *a, const struct list_elem *b, void *
 
 //main function that handles insertion into sleep list
 void thread_sleep(int64_t ticks) {
-
-
-
-  //Disabling interupts
-  enum intr_level old_level = intr_disable();
-
   if (ticks <= 0){
     return;
   }
@@ -307,6 +304,9 @@ void thread_sleep(int64_t ticks) {
   //Calc WakeUp Time
   //Add to Thread struct
   cur->wakeup_tick = timer_ticks() + ticks;
+
+  //Disabling interupts
+  enum intr_level old_level = intr_disable();
 
   //Inserts in wakeup time order
   list_insert_ordered(&sleep_list, &cur->sleep_elem, wakeup_compare, NULL);

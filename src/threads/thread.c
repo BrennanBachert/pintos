@@ -70,6 +70,8 @@ static void *alloc_frame (struct thread *, size_t size);
 static void schedule (void);
 void thread_schedule_tail (struct thread *prev);
 static tid_t allocate_tid (void);
+ 
+static bool thread_priority_compare(const struct list_elem *a, const struct list_elem *b, void *aux UNUSED);
 
 /** Initializes the threading system by transforming the code
    that's currently running into a thread.  This can't work in
@@ -249,8 +251,9 @@ thread_unblock (struct thread *t)
   //Preemption Functionality
   //If current thread prio is greater then current running thread 
   //that thread should yield
-  if (t->priority > thread_current()->priority) {
-    intr_yield_on_return();
+
+  if (!intr_context() && t->priority > thread_current()->priority) {
+    thread_yield();
   }
 
   intr_set_level (old_level);
@@ -505,6 +508,7 @@ alloc_frame (struct thread *t, size_t size)
 static struct thread *
 next_thread_to_run (void) 
 {
+  //as long as the list is sorted by priority this is good 
   if (list_empty (&ready_list))
     return idle_thread;
   else
