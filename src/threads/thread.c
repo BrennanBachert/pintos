@@ -258,7 +258,7 @@ thread_unblock (struct thread *t)
     {
       if (in_intr)
         intr_yield_on_return ();
-      else
+      else if (old_level == INTR_ON)
         thread_yield ();
     }
 }
@@ -611,13 +611,11 @@ static void
 schedule (void) 
 {
   struct thread *cur = running_thread ();
-  struct thread *next = next_thread_to_run ();
+  struct thread *next;
   struct thread *prev = NULL;
 
   ASSERT (intr_get_level () == INTR_OFF);
   ASSERT (cur->status != THREAD_RUNNING);
-  ASSERT (is_thread (next));
-
   //sort list mostly for redudancy
   if (!list_empty(&ready_list)) {
     list_sort(&ready_list, thread_priority_compare, NULL);
