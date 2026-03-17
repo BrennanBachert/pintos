@@ -33,6 +33,8 @@ static void busy_wait (int64_t loops);
 static void real_time_sleep (int64_t num, int32_t denom);
 static void real_time_delay (int64_t num, int32_t denom);
 
+void thread_sleep(int64_t ticks);
+
 
 /** Sets up the timer to interrupt TIMER_FREQ times per second,
    and registers the corresponding interrupt. */
@@ -99,12 +101,15 @@ void
 timer_sleep (int64_t ticks) 
 {
   int64_t start = timer_ticks ();
+  printf("[timer_sleep] sleeping for %lld ticks\n", ticks);
 
   ASSERT (intr_get_level () == INTR_ON);
 
   // put in sleep queue 
 
   thread_sleep(ticks);
+
+  printf("[timer_sleep] finished sleeping\n");
 
   //while (timer_elapsed (start) < ticks) 
 
@@ -187,7 +192,7 @@ timer_interrupt (struct intr_frame *args UNUSED)
 {
   ticks++;
   thread_tick ();
-
+  printf("[timer_interrupt] tick=%"PRId64", sleep_list=%zu\n", ticks, list_size(&sleep_list));
   // Wakeup Logic for AlarmClock
 
   struct list_elem *e;
@@ -201,6 +206,9 @@ timer_interrupt (struct intr_frame *args UNUSED)
 
     if (t->wakeup_tick <= ticks) {
       list_pop_front(&sleep_list);
+
+      printf("[timer_interrupt] waking up %s at tick %lld\n", t->name, ticks);
+
       thread_unblock(t);
     } else {
       break;
@@ -304,6 +312,7 @@ void thread_sleep(int64_t ticks) {
   //Calc WakeUp Time
   //Add to Thread struct
   cur->wakeup_tick = timer_ticks() + ticks;
+  printf("[thread_sleep] %s going to sleep until %lld\n", cur->name, cur->wakeup_tick);
 
   //Disabling interupts
   enum intr_level old_level = intr_disable();
@@ -311,8 +320,11 @@ void thread_sleep(int64_t ticks) {
   //Inserts in wakeup time order
   list_insert_ordered(&sleep_list, &cur->sleep_elem, wakeup_compare, NULL);
 
+  printf("[thread_sleep] %s inserted into sleep_list\n", cur->name);
+
   thread_block();
   //re enable interupts
   intr_set_level(old_level);
 
+  printf("[thread_sleep] %s woke up!\n", cur->name);
 }
