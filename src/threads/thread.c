@@ -124,7 +124,6 @@ thread_start (void)
 void
 thread_tick (void) 
 {
-  printf("tick %d, current=%s, ready=%d\n", thread_ticks, thread_current()->name, list_size(&ready_list));
   struct thread *t = thread_current ();
 
   /* Update statistics. */
@@ -235,6 +234,8 @@ void
 thread_unblock (struct thread *t) 
 {
   enum intr_level old_level;
+  bool should_yield;
+  bool in_intr;
 
   ASSERT (is_thread (t));
   old_level = intr_disable ();
@@ -249,13 +250,17 @@ thread_unblock (struct thread *t)
   list_insert_ordered(&ready_list, &t->elem, thread_priority_compare, NULL);
   t->status = THREAD_READY;
 
-  printf("[thread_unblock] unblocked %s (prio=%d). ready_size=%zu\n", t->name, t->priority, list_size(&ready_list));
-
+  in_intr = intr_context ();
+  should_yield = t->priority > thread_current ()->priority;
   intr_set_level (old_level);
 
-  if (!intr_context () && t->priority > thread_current ()->priority){
-    thread_yield ();
-  }
+  if (should_yield)
+    {
+      if (in_intr)
+        intr_yield_on_return ();
+      else
+        thread_yield ();
+    }
 }
 
 /** Returns the name of the running thread. */
@@ -351,23 +356,37 @@ thread_foreach (thread_action_func *func, void *aux)
 void
 thread_set_priority (int new_priority) 
 {
-  //disable interupts and chnage prio
-  struct thread *cur = thread_current();
-  enum intr_level old = intr_disable();
-  cur->priority = new_priority;
+  struct thread *cur = thread_current ();
+  enum intr_level old_level = intr_disable ();
+  int effective = new_priority;
+  bool need_yield = false;
 
-  //if in ready list remove and reinsert to keep ordering
-  if (cur->status == THREAD_READY) {
-    list_remove(&cur->elem);
-    list_insert_ordered(&ready_list, &cur->elem, thread_priority_compare, NULL);
-  }
+  cur->original_priority = new_priority;
 
-  //if lower than next thread yield
-  if (!intr_context()) {
-    thread_yield();
-  }
+  if (!list_empty (&cur->donations))
+    {
+      struct list_elem *e = list_min (&cur->donations,
+                                      donation_priority_compare, NULL);
+      struct thread *donor = list_entry (e, struct thread, donation_elem);
+      if (donor->priority > effective)
+        effective = donor->priority;
+    }
 
-  intr_set_level(old);
+  cur->priority = effective;
+
+  if (!list_empty (&ready_list))
+    {
+      struct list_elem *e = list_min (&ready_list,
+                                      thread_priority_compare, NULL);
+      struct thread *top = list_entry (e, struct thread, elem);
+      if (top->priority > cur->priority)
+        need_yield = true;
+    }
+
+  intr_set_level (old_level);
+
+  if (need_yield && !intr_context ())
+    thread_yield ();
 }
 
 /** Returns the current thread's priority. */
