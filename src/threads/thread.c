@@ -70,7 +70,8 @@ static void *alloc_frame (struct thread *, size_t size);
 static void schedule (void);
 void thread_schedule_tail (struct thread *prev);
 static tid_t allocate_tid (void);
- 
+
+//Predefining 
 bool thread_priority_compare(const struct list_elem *a, const struct list_elem *b, void *aux UNUSED);
 bool donation_priority_compare(const struct list_elem *a, const struct list_elem *b, void *aux UNUSED);
 /** Initializes the threading system by transforming the code
@@ -250,17 +251,18 @@ thread_unblock (struct thread *t)
   list_insert_ordered(&ready_list, &t->elem, thread_priority_compare, NULL);
   t->status = THREAD_READY;
 
+  //Should preempt?
   in_intr = intr_context ();
   should_yield = t->priority > thread_current ()->priority;
   intr_set_level (old_level);
 
-  if (should_yield)
-    {
-      if (in_intr)
-        intr_yield_on_return ();
-      else if (old_level == INTR_ON)
-        thread_yield ();
+  if (should_yield) {
+    if (in_intr) {
+      intr_yield_on_return ();
+    } else if (old_level == INTR_ON) {
+      thread_yield ();
     }
+  }
 }
 
 /** Returns the name of the running thread. */
@@ -329,6 +331,7 @@ thread_yield (void)
 
   old_level = intr_disable ();
   if (cur != idle_thread) 
+    //insert ordered instead
     list_insert_ordered(&ready_list, &cur->elem, thread_priority_compare, NULL);
   cur->status = THREAD_READY;
   schedule ();
@@ -363,30 +366,30 @@ thread_set_priority (int new_priority)
 
   cur->original_priority = new_priority;
 
-  if (!list_empty (&cur->donations))
-    {
-      struct list_elem *e = list_min (&cur->donations,
-                                      donation_priority_compare, NULL);
-      struct thread *donor = list_entry (e, struct thread, donation_elem);
-      if (donor->priority > effective)
-        effective = donor->priority;
+  //Update prio donations if needed very similar to sync
+  if (!list_empty (&cur->donations)) {
+    struct list_elem *e = list_min (&cur->donations, donation_priority_compare, NULL);
+    struct thread *donor = list_entry (e, struct thread, donation_elem);
+    if (donor->priority > effective) {
+      effective = donor->priority;
     }
+  }
 
   cur->priority = effective;
-
-  if (!list_empty (&ready_list))
-    {
-      struct list_elem *e = list_min (&ready_list,
-                                      thread_priority_compare, NULL);
-      struct thread *top = list_entry (e, struct thread, elem);
-      if (top->priority > cur->priority)
-        need_yield = true;
+  //determine if cur thread needs to yeild to updated prio
+  if (!list_empty (&ready_list)) {
+    struct list_elem *e = list_min (&ready_list, thread_priority_compare, NULL);
+    struct thread *top = list_entry (e, struct thread, elem);
+    if (top->priority > cur->priority) {
+      need_yield = true;
     }
+  }
 
   intr_set_level (old_level);
 
-  if (need_yield && !intr_context ())
+  if (need_yield && !intr_context ()) {
     thread_yield ();
+  }
 }
 
 /** Returns the current thread's priority. */
@@ -616,7 +619,7 @@ schedule (void)
 
   ASSERT (intr_get_level () == INTR_OFF);
   ASSERT (cur->status != THREAD_RUNNING);
-  //sort list mostly for redudancy
+  //sort list mostly for redudancy also easier 
   if (!list_empty(&ready_list)) {
     list_sort(&ready_list, thread_priority_compare, NULL);
   }

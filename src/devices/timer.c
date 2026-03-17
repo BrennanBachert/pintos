@@ -103,7 +103,8 @@ timer_sleep (int64_t ticks)
 
   if (ticks <= 0)
     return;
-
+    
+  //call handler function
   thread_sleep (ticks);
 }
 
@@ -185,7 +186,7 @@ timer_interrupt (struct intr_frame *args UNUSED)
   thread_tick ();
 
   struct list_elem *e;
-  /* Wake up any threads whose sleep has expired. */
+  // Wakes up any threads whose sleep has expired 
   while (!list_empty(&sleep_list)) {
 
     e = list_front(&sleep_list);
@@ -195,6 +196,9 @@ timer_interrupt (struct intr_frame *args UNUSED)
       list_pop_front(&sleep_list);
       thread_unblock(t);
     } else {
+      /*Since the list ordered
+       we can exit if current
+       thread still sleeps */
       break;
     }
 
@@ -274,10 +278,9 @@ real_time_delay (int64_t num, int32_t denom)
 
 //Contains Code for implementation of alarm clock
 
-// Allows the insertion into the linked list to be sorted by wakeup time
+//Allows the insertion into the linked list to be sorted by wakeup time
 static bool
-wakeup_compare (const struct list_elem *a, const struct list_elem *b,
-                void *aux UNUSED)
+wakeup_compare (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED)
 {
   struct thread *t1 = list_entry(a, struct thread, sleep_elem);
   struct thread *t2 = list_entry(b, struct thread, sleep_elem);
