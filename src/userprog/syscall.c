@@ -3,6 +3,10 @@
 #include <syscall-nr.h>
 #include "threads/interrupt.h"
 #include "threads/thread.h"
+// due to comp error added this
+#include "threads/vaddr.h"
+#include "userprog/pagedir.h"
+#include "devices/shutdown.h"
 
 //Function for writing
 int syscall_write(int fd, const void *buffer, unsigned size)
@@ -62,7 +66,7 @@ syscall_init (void)
 static void
 syscall_handler (struct intr_frame *f) 
 {
-  //printf ("system call!\n");
+  printf ("system call!\n");
 
   // Replaced exisiting systemcall handler to call sys_exit 
   // Added SYS_Halt behavior
