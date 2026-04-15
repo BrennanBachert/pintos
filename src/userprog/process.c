@@ -70,6 +70,11 @@ start_process (void *file_name_)
   struct intr_frame if_;
   bool success;
 
+  // Initializes User Thread
+  struct thread *cur = thread_current();
+  strlcpy(cur->prog_name, cur->name, sizeof(cur->prog_name));
+  cur->exit_status = -1;
+
   /* Initialize interrupt frame and load executable. */
   memset (&if_, 0, sizeof if_);
   if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
