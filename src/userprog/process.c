@@ -29,6 +29,7 @@ tid_t
 process_execute (const char *file_name) 
 {
   char *fn_copy;
+  char *fn_copy2;
   tid_t tid;
 
   /* Make a copy of FILE_NAME.
@@ -38,10 +39,25 @@ process_execute (const char *file_name)
     return TID_ERROR;
   strlcpy (fn_copy, file_name, PGSIZE);
 
+  // Copy 2 used to extract program name 
+  fn_copy2 = palloc_get_page (0);
+  if (fn_copy2 == NULL)
+  {
+    palloc_free_page(fn_copy);
+    return TID_ERROR;
+  }
+  strlcpy (fn_copy2, file_name, PGSIZE);
+
+  // Extracts program name 
+  char *save_ptr;
+  char *prog_name = strtok_r(fn_copy2, " ", &save_ptr);
+
   /* Create a new thread to execute FILE_NAME. */
-  tid = thread_create (file_name, PRI_DEFAULT, start_process, fn_copy);
+  tid = thread_create (prog_name, PRI_DEFAULT, start_process, fn_copy);
   if (tid == TID_ERROR)
     palloc_free_page (fn_copy); 
+  // freeing copy 2 mem
+  palloc_free_page(fn_copy2);
   return tid;
 }
 
@@ -97,6 +113,11 @@ process_exit (void)
 {
   struct thread *cur = thread_current ();
   uint32_t *pd;
+
+  // Checks if its user porgrams then prints exit message
+  if (cur->pagedir  != NULL) {
+    printf("%s: exit(%d)\n", cur->prog_name, cur->exit_status);
+  }
 
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
