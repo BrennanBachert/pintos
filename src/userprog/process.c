@@ -453,7 +453,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
 /** Create a minimal stack by mapping a zeroed page at the top of
    user virtual memory. */
 static bool
-setup_stack (void **esp) 
+setup_stack (void **esp, char *cmd_line)
 {
   uint8_t *kpage;
   bool success = false;
@@ -462,12 +462,66 @@ setup_stack (void **esp)
   if (kpage != NULL) 
     {
       success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
-      if (success)
+      if (success) {
         *esp = PHYS_BASE;
-      else
+      } else {
         palloc_free_page (kpage);
+        return success;
+      }
     }
-  return success;
+  else
+    return success;
+  
+  // Parses Args
+  char *argv[32];
+  int argc = 0;
+
+  char *token, *save_ptr;
+  token = strtok_r(cmd_line, " ", &save_ptr);
+  while (token != NULL) {
+    argv[argc++] = token;
+    token = strtok_r(NULL, " ", &save_ptr);
+  }
+
+  // Push Arguement Strings
+  char *argv_addr[32];
+
+  for (int i = argc - 1; i >= 0; i--) {
+    *esp -= strlen(argv[i]) + 1;
+    memcpy(*esp, argv[i], strlen(argv[i]) + 1);
+    argv_addr[i] = *esp;
+  }
+
+  // Word alignment
+  while ((uintptr_t)(*esp) % 4 != 0) {
+    *esp -= 1;
+    *(uint8_t *)(*esp) = 0;
+  }
+
+  // Push NULL sentinel
+  *esp -= 4;
+  *(char **)(*esp) = NULL;
+
+  // Push Argv[i] pointers
+  for (int i = argc - 1; i >= 0; i--) {
+    *esp -= 4;
+    *(char **)(*esp) = argv_addr[i];
+  }
+
+  // Push argv
+  char **argv_ptr = *esp;
+  *esp -= 4;
+  *(char ***)(*esp) = argv_ptr;
+
+  // Push argc
+  *esp -= 4;
+  *(int *)(*esp) = argc;
+
+  // Fake return address
+  *esp -= 4;
+  *(int *)(*esp) = 0;
+
+  return true;
 }
 
 /** Adds a mapping from user virtual address UPAGE to kernel
