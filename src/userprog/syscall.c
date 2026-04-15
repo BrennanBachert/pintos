@@ -4,6 +4,16 @@
 #include "threads/interrupt.h"
 #include "threads/thread.h"
 
+//Function for writing
+int syscall_write(int fd, const void *buffer, unsigned size)
+{
+  if (fd != 1)
+    return -1;
+
+  putbuf(buffer, size);
+  return size;
+}
+
 // Adding sys_exit Functionality
 void sys_exit(int status)
 {
@@ -62,7 +72,7 @@ syscall_handler (struct intr_frame *f)
   {
     case SYS_EXIT:
     {
-      int status = *(int *)(f->esp + 4);
+      int status = (copy_in_u32(f->esp + 4));
       sys_exit(status);
       break;
     }
@@ -70,6 +80,18 @@ syscall_handler (struct intr_frame *f)
     case SYS_HALT:
     {
       shutdown_power_off();
+      break;
+    }
+    //Functionality for writing that should verify everything
+    case SYS_WRITE:
+    {
+      //getting everything needed for syscall_write
+      int fd = copy_in_u32(f->esp + 4);
+      const void *buffer = (const void *) copy_in_u32(f->esp + 8);
+      unsigned size = (unsigned) copy_in_u32(f->esp + 12);
+
+      validate_user_range(buffer, size);
+      f->eax = syscall_write(fd, buffer, size);
       break;
     }
 
