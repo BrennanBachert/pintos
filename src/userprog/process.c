@@ -20,6 +20,13 @@
 
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
+//Struct for Proccess wait
+struct wait_probe
+  {
+    tid_t tid;
+    bool found;
+  };
+static void find_child_by_tid (struct thread *t, void *aux);
 
 /** Starts a new thread running a user program loaded from
    FILENAME.  The new thread may be scheduled (and may even exit)
@@ -107,9 +114,31 @@ start_process (void *file_name_)
    This function will be implemented in problem 2-2.  For now, it
    does nothing. */
 int
-process_wait (tid_t child_tid UNUSED) 
+process_wait (tid_t child_tid) 
 {
+  if (child_tid == TID_ERROR)
+    return -1;
+
+  for (;;) {
+    enum intr_level old_level = intr_disable ();
+    struct wait_probe probe = { .tid = child_tid, .found = false };
+    thread_foreach (find_child_by_tid, &probe);
+    intr_set_level (old_level);
+
+    if (!probe.found)
+      break;
+
+    thread_yield ();
+  }
+
   return -1;
+}
+
+static void
+find_child_by_tid (struct thread *t, void *aux) {
+  struct wait_probe *p = aux;
+  if (t->tid == p->tid)
+    p->found = true;
 }
 
 /** Free the current process's resources. */
@@ -237,6 +266,9 @@ load (const char *file_name, void (**eip) (void), void **esp)
   struct thread *t = thread_current ();
   struct Elf32_Ehdr ehdr;
   struct file *file = NULL;
+  char *file_name_copy = NULL;
+  char *save_ptr = NULL;
+  char *prog_name = NULL;
   off_t file_ofs;
   bool success = false;
   int i;
@@ -247,11 +279,19 @@ load (const char *file_name, void (**eip) (void), void **esp)
     goto done;
   process_activate ();
 
-  /* Open executable file. */
-  file = filesys_open (file_name);
+  // Open executable file by program name only (argv[0]). 
+  file_name_copy = palloc_get_page (0);
+  if (file_name_copy == NULL)
+    goto done;
+  strlcpy (file_name_copy, file_name, PGSIZE);
+  prog_name = strtok_r (file_name_copy, " ", &save_ptr);
+  if (prog_name == NULL)
+    goto done;
+
+  file = filesys_open (prog_name);
   if (file == NULL) 
     {
-      printf ("load: %s: open failed\n", file_name);
+      printf ("load: %s: open failed\n", prog_name);
       goto done; 
     }
 
@@ -328,7 +368,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
     }
 
   /* Set up stack. */
-  //Chnaged due to setup_stack taking cmd arg
+  /* setup_stack() tokenizes command line for argv[] layout. */
   if (!setup_stack (esp, (char *) file_name))
     goto done;
 
@@ -337,8 +377,10 @@ load (const char *file_name, void (**eip) (void), void **esp)
 
   success = true;
 
- done:
+done:
   /* We arrive here whether the load is successful or not. */
+  if (file_name_copy != NULL)
+    palloc_free_page (file_name_copy);
   file_close (file);
   return success;
 }
